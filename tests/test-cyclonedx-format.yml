@@ -1,0 +1,34 @@
+name: Test AI-BOM scan with CycloneDX format
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          path: "."
+          format: "cyclonedx"
+          output: "ai-bom-results-cyclonedx.json"
+          upload-sarif: "false"
+
+      - name: Assert CycloneDX output file was created
+        run: |
+          echo "Checking for output file: ai-bom-results-cyclonedx.json"
+          if [ ! -f "ai-bom-results-cyclonedx.json" ]; then
+            echo "FAIL: expected output file 'ai-bom-results-cyclonedx.json' not found"
+            exit 1
+          fi
+          echo "PASS: output file exists"
+
+      - name: Assert CycloneDX output is valid JSON
+        run: |
+          echo "Validating CycloneDX output file is valid JSON"
+          if ! python3 -c "import json, sys; json.load(open('ai-bom-results-cyclonedx.json'))" 2>&1; then
+            echo "FAIL: CycloneDX output file is not valid JSON"
+            exit 1
+          fi
+          echo "PASS: CycloneDX output file is valid JSON"
