@@ -8,6 +8,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
+| v0.1.0 | [`v0.1.0`](https://github.com/chainguard-actions/Trusera-ai-bom/tree/v0.1.0) | [`70ccbd5`](https://github.com/Trusera/ai-bom/commit/70ccbd59d9f506ded626d9728aa03d012ac16343) |
 | v3.0.0 | [`v3.0.0`](https://github.com/chainguard-actions/Trusera-ai-bom/tree/v3.0.0) | [`3387baf`](https://github.com/Trusera/ai-bom/commit/3387bafe8465dbb2bc50f2f74622e097921221e7) |
 
 ## Privacy
