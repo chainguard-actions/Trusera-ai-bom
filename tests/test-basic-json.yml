@@ -1,0 +1,38 @@
+name: Test AI-BOM basic JSON scan
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          path: "."
+          format: "json"
+          output: "ai-bom-results.json"
+          upload-sarif: "false"
+
+      - name: Assert output file was created
+        run: |
+          echo "Checking for output file ai-bom-results.json"
+          if [ ! -f "ai-bom-results.json" ]; then
+            echo "FAIL: expected output file ai-bom-results.json not found"
+            exit 1
+          fi
+          echo "PASS: output file exists"
+
+      - name: Assert output file is valid JSON
+        run: |
+          echo "Validating JSON output"
+          if ! python3 -m json.tool ai-bom-results.json > /dev/null 2>&1; then
+            echo "FAIL: output file is not valid JSON"
+            cat ai-bom-results.json || true
+            exit 1
+          fi
+          echo "PASS: output file is valid JSON"
