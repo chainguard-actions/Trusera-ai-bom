@@ -1,0 +1,39 @@
+name: Test deep scan level
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install ai-bom (local source or PyPI)
+        run: |
+          pip install "$GITHUB_WORKSPACE/action" --quiet 2>/dev/null \
+            || pip install ai-bom --quiet 2>/dev/null \
+            || true
+
+      - name: Create a sample file to scan
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/scan-target"
+          cat > "$GITHUB_WORKSPACE/scan-target/sample.py" << 'EOF'
+          import anthropic
+          client = anthropic.Anthropic(api_key="sk-ant-test")
+          message = client.messages.create(
+              model="claude-3-opus-20240229",
+              max_tokens=1024,
+              messages=[{"role": "user", "content": "Hello"}]
+          )
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          path: ${{ github.workspace }}/scan-target
+          format: table
+          scan-level: deep
+
+      - name: Assert deep scan completed successfully
+        run: |
+          echo "Deep scan completed without error"
+          echo "PASS"

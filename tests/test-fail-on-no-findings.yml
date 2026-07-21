@@ -1,0 +1,37 @@
+name: Test fail-on with no findings (should pass)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install ai-bom (local source or PyPI)
+        run: |
+          pip install "$GITHUB_WORKSPACE/action" --quiet 2>/dev/null \
+            || pip install ai-bom --quiet 2>/dev/null \
+            || true
+
+      - name: Create a sample file with no AI components
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/scan-target-empty"
+          cat > "$GITHUB_WORKSPACE/scan-target-empty/hello.py" << 'EOF'
+          def greet(name):
+              return f"Hello, {name}!"
+
+          if __name__ == "__main__":
+              print(greet("World"))
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          path: ${{ github.workspace }}/scan-target-empty
+          format: table
+          fail-on: critical
+
+      - name: Assert scan passed with no critical findings
+        run: |
+          echo "Scan completed without failing on critical severity"
+          echo "PASS"

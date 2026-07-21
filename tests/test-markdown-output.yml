@@ -1,0 +1,24 @@
+name: Test markdown format with output file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run ai-bom scan with markdown format and output file
+        id: action
+        uses: .
+        with:
+          path: "."
+          format: "markdown"
+          output: "/tmp/ai-bom-report.md"
+      - name: Assert output file was created
+        run: |
+          echo "Checking for output file at /tmp/ai-bom-report.md"
+          if [ ! -f "/tmp/ai-bom-report.md" ]; then
+            echo "FAIL: output file /tmp/ai-bom-report.md was not created"
+            exit 1
+          fi
+          echo "PASS: output file exists"
+          ls -lh /tmp/ai-bom-report.md

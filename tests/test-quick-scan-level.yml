@@ -1,0 +1,18 @@
+name: Test quick scan level
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run ai-bom scan with quick scan level
+        id: action
+        uses: .
+        with:
+          path: "."
+          format: "table"
+          scan-level: "quick"
+      - name: Assert scan completed successfully
+        run: |
+          echo "PASS: ai-bom quick scan completed successfully"

@@ -1,0 +1,24 @@
+name: Test SARIF format output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run ai-bom scan with CSV format and output file
+        id: action
+        uses: .
+        with:
+          path: "."
+          format: "csv"
+          output: "/tmp/ai-bom-results.csv"
+      - name: Assert CSV output file was created
+        run: |
+          echo "Checking for CSV output file at /tmp/ai-bom-results.csv"
+          if [ ! -f "/tmp/ai-bom-results.csv" ]; then
+            echo "FAIL: CSV output file was not created"
+            exit 1
+          fi
+          echo "PASS: CSV output file exists"
+          ls -lh /tmp/ai-bom-results.csv

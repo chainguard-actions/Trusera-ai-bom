@@ -1,0 +1,56 @@
+name: Test output file path
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install ai-bom (local source or PyPI)
+        run: |
+          pip install "$GITHUB_WORKSPACE/action" --quiet 2>/dev/null \
+            || pip install ai-bom --quiet 2>/dev/null \
+            || true
+
+      - name: Create a sample file to scan
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/scan-target"
+          cat > "$GITHUB_WORKSPACE/scan-target/sample.js" << 'EOF'
+          const { OpenAI } = require("openai");
+          const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          async function main() {
+            const completion = await client.chat.completions.create({
+              model: "gpt-4",
+              messages: [{ role: "user", content: "Hello" }],
+            });
+            console.log(completion.choices[0].message);
+          }
+          main();
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          path: ${{ github.workspace }}/scan-target
+          format: cyclonedx
+          output: ${{ github.workspace }}/ai-bom-output.json
+
+      - name: Assert output file was created
+        run: |
+          echo "Checking for output file at $GITHUB_WORKSPACE/ai-bom-output.json..."
+          if [ ! -f "$GITHUB_WORKSPACE/ai-bom-output.json" ]; then
+            echo "FAIL: expected output file $GITHUB_WORKSPACE/ai-bom-output.json to exist"
+            exit 1
+          fi
+          echo "PASS: output file exists"
+
+      - name: Assert output file is non-empty
+        run: |
+          SIZE=$(wc -c < "$GITHUB_WORKSPACE/ai-bom-output.json")
+          echo "Output file size: $SIZE bytes"
+          if [ "$SIZE" -eq 0 ]; then
+            echo "FAIL: output file is empty"
+            exit 1
+          fi
+          echo "PASS: output file is non-empty"

@@ -1,0 +1,98 @@
+name: "AI-BOM Scan"
+description: "Discover and inventory AI/LLM agents, models, and API integrations in your codebase. Generates SBOM-style reports in CycloneDX, SARIF, SPDX, and more."
+author: "Trusera"
+# Required permissions in calling workflow:
+#   permissions:
+#     security-events: write   # For SARIF upload to GitHub Code Scanning
+#     contents: read           # For checkout
+branding:
+  icon: "shield"
+  color: "blue"
+inputs:
+  path:
+    description: "Directory to scan"
+    required: false
+    default: "."
+  format:
+    description: "Output format (cyclonedx, sarif, spdx, table, html, markdown, csv)"
+    required: false
+    default: "table"
+  output:
+    description: "Output file path (optional — prints to stdout if not set)"
+    required: false
+    default: ""
+  fail-on:
+    description: "Fail the pipeline if any component meets or exceeds this severity (critical, high, medium, low)"
+    required: false
+    default: ""
+  scan-level:
+    description: "Scanning depth: quick (pattern-matching only), standard (all scanners), deep (standard + AST analysis)"
+    required: false
+    default: "standard"
+runs:
+  using: "composite"
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - name: Set up Python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      with:
+        python-version: "3.12"
+        cache: "pip"
+    - name: Install ai-bom
+      shell: bash
+      run: pip install ai-bom
+    - name: Run ai-bom scan
+      id: scan
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_SCAN_LEVEL: ${{ inputs.scan-level }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        # Build the base command using an array to prevent word-splitting / injection
+        ARGS=(scan "$INPUT_PATH" --format "$INPUT_FORMAT" --quiet)
+
+        # Output file
+        if [ -n "$INPUT_OUTPUT" ]; then
+          ARGS+=(-o "$INPUT_OUTPUT")
+        elif [ "$INPUT_FORMAT" = "sarif" ]; then
+          # Default SARIF output path for upload step
+          ARGS+=(-o ai-bom-results.sarif)
+          echo "sarif_file=ai-bom-results.sarif" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Scan level
+        if [ "$INPUT_SCAN_LEVEL" = "deep" ]; then
+          ARGS+=(--deep)
+        fi
+
+        # Fail-on severity threshold
+        if [ -n "$INPUT_FAIL_ON" ]; then
+          ARGS+=(--fail-on "$INPUT_FAIL_ON")
+        fi
+
+        echo "Running: ai-bom ${ARGS[*]}"
+        ai-bom "${ARGS[@]}"
+    - name: Upload SARIF to GitHub Code Scanning
+      if: ${{ inputs.format == 'sarif' && (steps.scan.outputs.sarif_file != '' || inputs.output != '') }}
+      uses: github/codeql-action/upload-sarif@b7351df727350dca84cb9d725d57dcf5bc82ba26 # v3
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif_file || inputs.output }}

@@ -1,0 +1,51 @@
+name: Test markdown format output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install ai-bom (local source or PyPI)
+        run: |
+          pip install "$GITHUB_WORKSPACE/action" --quiet 2>/dev/null \
+            || pip install ai-bom --quiet 2>/dev/null \
+            || true
+
+      - name: Create a sample file to scan
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/scan-target"
+          cat > "$GITHUB_WORKSPACE/scan-target/app.py" << 'EOF'
+          import openai
+          import anthropic
+
+          openai_client = openai.OpenAI(api_key="sk-test")
+          anthropic_client = anthropic.Anthropic(api_key="sk-ant-test")
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          path: ${{ github.workspace }}/scan-target
+          format: markdown
+          output: ${{ github.workspace }}/ai-bom-report.md
+
+      - name: Assert markdown output file was created
+        run: |
+          echo "Checking for markdown output file..."
+          if [ ! -f "$GITHUB_WORKSPACE/ai-bom-report.md" ]; then
+            echo "FAIL: expected $GITHUB_WORKSPACE/ai-bom-report.md to exist"
+            exit 1
+          fi
+          echo "PASS: markdown output file exists"
+
+      - name: Assert output file is non-empty
+        run: |
+          SIZE=$(wc -c < "$GITHUB_WORKSPACE/ai-bom-report.md")
+          echo "Output file size: $SIZE bytes"
+          if [ "$SIZE" -eq 0 ]; then
+            echo "FAIL: markdown output file is empty"
+            exit 1
+          fi
+          echo "PASS: markdown output file is non-empty"
