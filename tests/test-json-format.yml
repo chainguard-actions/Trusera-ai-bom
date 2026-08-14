@@ -1,4 +1,4 @@
-name: Test severity filter
+name: Test JSON format output
 on:
   workflow_dispatch:
 
@@ -13,23 +13,22 @@ jobs:
         with:
           path: "."
           format: "json"
-          severity: "high"
-          output: "ai-bom-severity.json"
+          output: "ai-bom-results.json"
           upload-sarif: "false"
 
-      - name: Assert output file was created with severity filter
+      - name: Assert JSON output file was created
         run: |
-          echo "Checking for output file: ai-bom-severity.json"
-          if [ ! -f "ai-bom-severity.json" ]; then
-            echo "FAIL: expected output file 'ai-bom-severity.json' was not created"
+          echo "Checking for output file: ai-bom-results.json"
+          if [ ! -f "ai-bom-results.json" ]; then
+            echo "FAIL: expected output file 'ai-bom-results.json' was not created"
             exit 1
           fi
-          echo "PASS: output file exists with severity filter applied"
+          echo "PASS: output file exists"
 
       - name: Assert output file is valid JSON
         run: |
           echo "Validating JSON output file..."
-          if ! python3 -c "import json, sys; json.load(open('ai-bom-severity.json'))" 2>&1; then
+          if ! python3 -c "import json, sys; json.load(open('ai-bom-results.json'))" 2>&1; then
             echo "FAIL: output file is not valid JSON"
             exit 1
           fi

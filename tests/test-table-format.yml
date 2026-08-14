@@ -1,0 +1,28 @@
+name: Test table format output
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          path: "."
+          format: "table"
+          output: "ai-bom-results.txt"
+          upload-sarif: "false"
+
+      - name: Assert table output file was created
+        run: |
+          echo "Checking for output file: ai-bom-results.txt"
+          if [ ! -f "ai-bom-results.txt" ]; then
+            echo "FAIL: expected output file 'ai-bom-results.txt' was not created"
+            exit 1
+          fi
+          echo "PASS: output file exists"
+          echo "File contents:"
+          cat "ai-bom-results.txt"
