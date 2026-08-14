@@ -1,4 +1,4 @@
-name: Test basic AI-BOM scan
+name: Test basic SARIF scan
 on:
   workflow_dispatch:
 jobs:
@@ -15,20 +15,33 @@ jobs:
           output: "ai-bom-results.sarif"
           upload-sarif: "false"
 
-      - name: Assert output file was created
+      - name: Assert SARIF output file exists
         run: |
-          echo "Checking for output file: ai-bom-results.sarif"
+          echo "Checking for SARIF output file..."
           if [ ! -f "ai-bom-results.sarif" ]; then
-            echo "FAIL: expected output file 'ai-bom-results.sarif' not found"
+            echo "FAIL: expected ai-bom-results.sarif to exist"
             exit 1
           fi
-          echo "PASS: output file exists"
+          echo "PASS: ai-bom-results.sarif exists"
 
-      - name: Assert output file is valid JSON (SARIF is JSON)
+      - name: Assert SARIF file is valid JSON
         run: |
-          echo "Validating SARIF file is valid JSON"
+          echo "Validating SARIF file is valid JSON..."
           if ! python3 -c "import json, sys; json.load(open('ai-bom-results.sarif'))" 2>&1; then
-            echo "FAIL: output file is not valid JSON/SARIF"
+            echo "FAIL: ai-bom-results.sarif is not valid JSON"
             exit 1
           fi
-          echo "PASS: output file is valid JSON"
+          echo "PASS: ai-bom-results.sarif is valid JSON"
+
+      - name: Assert SARIF schema version present
+        run: |
+          echo "Checking SARIF schema..."
+          SCHEMA=$(python3 -c "import json; d=json.load(open('ai-bom-results.sarif')); print(d.get('\$schema',''))" 2>/dev/null || echo "")
+          VERSION=$(python3 -c "import json; d=json.load(open('ai-bom-results.sarif')); print(d.get('version',''))" 2>/dev/null || echo "")
+          echo "schema: $SCHEMA"
+          echo "version: $VERSION"
+          if [ -z "$SCHEMA" ] && [ -z "$VERSION" ]; then
+            echo "FAIL: SARIF file missing schema or version field"
+            exit 1
+          fi
+          echo "PASS: SARIF file has expected structure"

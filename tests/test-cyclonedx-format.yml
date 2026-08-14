@@ -1,4 +1,4 @@
-name: Test AI-BOM scan with CycloneDX format
+name: Test CycloneDX format output
 on:
   workflow_dispatch:
 jobs:
@@ -12,23 +12,30 @@ jobs:
         with:
           path: "."
           format: "cyclonedx"
-          output: "ai-bom-results-cyclonedx.json"
+          output: "ai-bom-cyclonedx.json"
           upload-sarif: "false"
 
-      - name: Assert CycloneDX output file was created
+      - name: Assert CycloneDX output file exists
         run: |
-          echo "Checking for output file: ai-bom-results-cyclonedx.json"
-          if [ ! -f "ai-bom-results-cyclonedx.json" ]; then
-            echo "FAIL: expected output file 'ai-bom-results-cyclonedx.json' not found"
+          echo "Checking for CycloneDX output file..."
+          if [ ! -f "ai-bom-cyclonedx.json" ]; then
+            echo "FAIL: expected ai-bom-cyclonedx.json to exist"
             exit 1
           fi
-          echo "PASS: output file exists"
+          echo "PASS: ai-bom-cyclonedx.json exists"
 
       - name: Assert CycloneDX output is valid JSON
         run: |
-          echo "Validating CycloneDX output file is valid JSON"
-          if ! python3 -c "import json, sys; json.load(open('ai-bom-results-cyclonedx.json'))" 2>&1; then
-            echo "FAIL: CycloneDX output file is not valid JSON"
+          echo "Validating CycloneDX JSON output..."
+          if ! python3 -c "import json; json.load(open('ai-bom-cyclonedx.json'))" 2>&1; then
+            echo "FAIL: ai-bom-cyclonedx.json is not valid JSON"
             exit 1
           fi
-          echo "PASS: CycloneDX output file is valid JSON"
+          echo "PASS: ai-bom-cyclonedx.json is valid JSON"
+
+      - name: Show CycloneDX output summary
+        run: |
+          echo "CycloneDX output (first 300 chars):"
+          cat ai-bom-cyclonedx.json | head -c 300
+          echo ""
+          echo "PASS: CycloneDX format scan completed"

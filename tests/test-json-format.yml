@@ -1,4 +1,4 @@
-name: Test AI-BOM scan with JSON format
+name: Test JSON format output
 on:
   workflow_dispatch:
 jobs:
@@ -15,20 +15,32 @@ jobs:
           output: "ai-bom-results.json"
           upload-sarif: "false"
 
-      - name: Assert JSON output file was created
+      - name: Assert JSON output file exists
         run: |
-          echo "Checking for output file: ai-bom-results.json"
+          echo "Checking for JSON output file..."
           if [ ! -f "ai-bom-results.json" ]; then
-            echo "FAIL: expected output file 'ai-bom-results.json' not found"
+            echo "FAIL: expected ai-bom-results.json to exist"
             exit 1
           fi
-          echo "PASS: output file exists"
+          echo "PASS: ai-bom-results.json exists"
 
-      - name: Assert output file is valid JSON
+      - name: Assert JSON file is valid JSON
         run: |
-          echo "Validating JSON output file"
+          echo "Validating JSON output file..."
           if ! python3 -c "import json, sys; json.load(open('ai-bom-results.json'))" 2>&1; then
-            echo "FAIL: output file is not valid JSON"
+            echo "FAIL: ai-bom-results.json is not valid JSON"
             exit 1
           fi
-          echo "PASS: output file is valid JSON"
+          echo "PASS: ai-bom-results.json is valid JSON"
+
+      - name: Show JSON output summary
+        run: |
+          echo "JSON output contents (first 500 chars):"
+          python3 -c "
+          import json
+          with open('ai-bom-results.json') as f:
+              data = json.load(f)
+          print(str(data)[:500])
+          " 2>/dev/null || cat ai-bom-results.json | head -c 500
+          echo ""
+          echo "PASS: JSON output reviewed"

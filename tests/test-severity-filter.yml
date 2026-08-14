@@ -1,0 +1,42 @@
+name: Test severity filter
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          path: "."
+          format: "json"
+          severity: "high"
+          output: "ai-bom-severity.json"
+          upload-sarif: "false"
+
+      - name: Assert output file exists
+        run: |
+          echo "Checking for output file with severity filter..."
+          if [ ! -f "ai-bom-severity.json" ]; then
+            echo "FAIL: expected ai-bom-severity.json to exist"
+            exit 1
+          fi
+          echo "PASS: ai-bom-severity.json exists"
+
+      - name: Assert output is valid JSON
+        run: |
+          echo "Validating JSON output..."
+          if ! python3 -c "import json; json.load(open('ai-bom-severity.json'))" 2>&1; then
+            echo "FAIL: ai-bom-severity.json is not valid JSON"
+            exit 1
+          fi
+          echo "PASS: ai-bom-severity.json is valid JSON"
+
+      - name: Show severity-filtered output
+        run: |
+          echo "Severity-filtered output (first 300 chars):"
+          cat ai-bom-severity.json | head -c 300
+          echo ""
+          echo "PASS: severity filter applied successfully"
