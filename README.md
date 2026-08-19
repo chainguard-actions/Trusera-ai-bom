@@ -11,6 +11,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v0.1.0 | [`v0.1.0`](https://github.com/chainguard-actions/Trusera-ai-bom/tree/v0.1.0) | [`70ccbd5`](https://github.com/Trusera/ai-bom/commit/70ccbd59d9f506ded626d9728aa03d012ac16343) |
 | v3.0.0 | [`v3.0.0`](https://github.com/chainguard-actions/Trusera-ai-bom/tree/v3.0.0) | [`3387baf`](https://github.com/Trusera/ai-bom/commit/3387bafe8465dbb2bc50f2f74622e097921221e7) |
 | v3.1.0 | [`v3.1.0`](https://github.com/chainguard-actions/Trusera-ai-bom/tree/v3.1.0) | [`ce55398`](https://github.com/Trusera/ai-bom/commit/ce5539845a74c0318273d582bd1f35d507dd7f1b) |
+| vscode-v0.1.0 | [`vscode-v0.1.0`](https://github.com/chainguard-actions/Trusera-ai-bom/tree/vscode-v0.1.0) | [`474e527`](https://github.com/Trusera/ai-bom/commit/474e52760c5d7644fd4f9e746dad99d2a0a42cbf) |
 
 ## Privacy
 
