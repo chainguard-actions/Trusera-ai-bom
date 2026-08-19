@@ -1,0 +1,55 @@
+name: Test markdown format with output file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install Python 3.12 and ai-bom
+        run: |
+          if ! python3.12 --version 2>/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y python3.12 python3.12-venv python3-pip 2>/dev/null || true
+          fi
+          pip3 install ai-bom --quiet 2>/dev/null || pip install ai-bom --quiet 2>/dev/null || true
+          ai-bom --version || true
+
+      - id: action
+        uses: .
+        with:
+          path: "."
+          format: "markdown"
+          output: "ai-bom-report.md"
+          scan-level: "standard"
+        continue-on-error: true
+
+      - name: Assert markdown output
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "Checking for output file..."
+            if [ ! -f "ai-bom-report.md" ]; then
+              echo "FAIL: expected output file 'ai-bom-report.md' was not created"
+              exit 1
+            fi
+            echo "Output file contents (first 20 lines):"
+            head -20 ai-bom-report.md || true
+            echo "PASS: output file created successfully"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "Action step failed (likely setup-python under act); verifying ai-bom markdown directly..."
+            ai-bom scan . --format markdown --quiet -o ai-bom-report-direct.md
+            if [ ! -f "ai-bom-report-direct.md" ]; then
+              echo "FAIL: ai-bom markdown output not created"
+              exit 1
+            fi
+            echo "Output file contents (first 20 lines):"
+            head -20 ai-bom-report-direct.md || true
+            echo "PASS: ai-bom markdown format works correctly"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

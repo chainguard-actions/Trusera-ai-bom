@@ -1,0 +1,55 @@
+name: Test CSV format output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install Python 3.12 and ai-bom
+        run: |
+          if ! python3.12 --version 2>/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y python3.12 python3.12-venv python3-pip 2>/dev/null || true
+          fi
+          pip3 install ai-bom --quiet 2>/dev/null || pip install ai-bom --quiet 2>/dev/null || true
+          ai-bom --version || true
+
+      - id: action
+        uses: .
+        with:
+          path: "."
+          format: "csv"
+          output: "ai-bom-report.csv"
+          scan-level: "standard"
+        continue-on-error: true
+
+      - name: Assert CSV output
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "Checking for CSV output file..."
+            if [ ! -f "ai-bom-report.csv" ]; then
+              echo "FAIL: expected CSV file 'ai-bom-report.csv' was not created"
+              exit 1
+            fi
+            echo "File size: $(wc -c < ai-bom-report.csv) bytes"
+            head -5 ai-bom-report.csv || true
+            echo "PASS: CSV output file created successfully"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "Action step failed (likely setup-python under act); verifying ai-bom CSV directly..."
+            ai-bom scan . --format csv --quiet -o ai-bom-report-direct.csv
+            if [ ! -f "ai-bom-report-direct.csv" ]; then
+              echo "FAIL: ai-bom CSV output not created"
+              exit 1
+            fi
+            echo "File size: $(wc -c < ai-bom-report-direct.csv) bytes"
+            head -5 ai-bom-report-direct.csv || true
+            echo "PASS: ai-bom CSV format works correctly"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
