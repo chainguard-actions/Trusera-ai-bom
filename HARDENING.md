@@ -10,26 +10,45 @@
 
 **Harden Agent Version:** `2`
 
-Action **Trusera--ai-bom/v3.1.0** was hardened automatically. 10 finding(s) were identified and resolved across 2 iteration(s).
+Action **Trusera--ai-bom/v3.1.0** was hardened automatically. 10 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
 ### script-injection (severity: high)
 
-Sub-rule (a): The 'Run ai-bom scan' step directly interpolates multiple `${{ inputs.* }}` expressions inside the `run:` shell script. Specifically: `${{ inputs.path }}`, `${{ inputs.format }}`, `${{ inputs.output }}`, `${{ inputs.scan-level }}`, and `${{ inputs.fail-on }}` are all embedded directly in shell commands. YAML template substitution occurs before the shell processes the script, so an attacker who controls these inputs can inject arbitrary shell metacharacters (e.g., `;`, `|`, `$(...)`, backticks). The values should be passed via `env:` variables and then referenced as double-quoted shell variables (e.g., `"$INPUT_PATH"`) instead of being interpolated directly with `${{ }}`.
+The 'Run ai-bom scan' step (action.yml) directly interpolates multiple user-controlled `inputs.*` expressions inside the `run:` shell script via YAML template substitution, enabling command injection. An attacker who controls these inputs can inject arbitrary shell commands. Offending lines include:
+- `ARGS="scan ${{ inputs.path }} --format ${{ inputs.format }} --quiet"` (sub-rule a)
+- `if [ -n "${{ inputs.output }}" ]; then` (sub-rule a)
+- `ARGS="$ARGS -o ${{ inputs.output }}"` (sub-rule a)
+- `elif [ "${{ inputs.format }}" = "sarif" ]; then` (sub-rule a)
+- `if [ "${{ inputs.scan-level }}" = "deep" ]; then` (sub-rule a)
+- `if [ -n "${{ inputs.fail-on }}" ]; then` (sub-rule a)
+- `ARGS="$ARGS --fail-on ${{ inputs.fail-on }}"` (sub-rule a)
+- `ai-bom $ARGS` (unquoted expansion of attacker-controlled ARGS, sub-rule b)
+
+Fix: move all inputs into `env:` variables and reference them as double-quoted shell variables (e.g., `"$INPUT_PATH"`), never interpolating `${{ ... }}` directly inside a `run:` block.
 
 Locations:
 
 - `action.yml:51`
+- `action.yml:54`
+- `action.yml:55`
+- `action.yml:56`
+- `action.yml:62`
+- `action.yml:65`
+- `action.yml:68`
+- `action.yml:71`
 
 ### unpinned-uses (severity: high)
 
-Two `uses:` references in action.yml are pinned to mutable version tags rather than immutable 40-character commit SHAs, making the action vulnerable to supply-chain attacks if the referenced tag is moved or overwritten. Failing references: (1) `uses: actions/setup-python@v5` (line 38) — should be pinned to a full SHA digest; (2) `uses: github/codeql-action/upload-sarif@v3` (line 75) — should be pinned to a full SHA digest.
+Two `uses:` references in action.yml use mutable version tags instead of pinned 40-character commit SHA digests, making the action vulnerable to supply-chain attacks if the upstream tag is moved or compromised:
+- `uses: actions/setup-python@v5` (line 39) — should be pinned to a full SHA, e.g. `actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5`
+- `uses: github/codeql-action/upload-sarif@v3` (line 73) — should be pinned to a full SHA, e.g. `github/codeql-action/upload-sarif@45775bd8235c68ba998cffa5171334d58593da47 # v3`
 
 Locations:
 
-- `action.yml:38`
-- `action.yml:75`
+- `action.yml:39`
+- `action.yml:73`
 
 ### static-inline-injection (severity: high)
 
@@ -99,20 +118,17 @@ Locations:
 
 ### Iteration 1
 
-**Fixes applied:** unpinned-uses, script-injection, static-inline-injection
+**Fixes applied:** script-injection, static-inline-injection, unpinned-uses
 
 **Notes:**
 
 Fixed all findings in hardened/action/action.yml:
-1. Pinned `actions/setup-python@v5` to SHA `a26af69be951a213d495a4c3e4e4022e16d87065` (# v5)
-2. Pinned `github/codeql-action/upload-sarif@v3` to SHA `b7351df727350dca84cb9d725d57dcf5bc82ba26` (# v3)
-3. Moved all `${{ inputs.* }}` expressions from the 'Run ai-bom scan' run: block into an env: map (INPUT_PATH, INPUT_FORMAT, INPUT_OUTPUT, INPUT_SCAN_LEVEL, INPUT_FAIL_ON) and updated the shell script to reference them as plain environment variables, eliminating all script injection vectors.
 
-### Iteration 2
+1. script-injection / static-inline-injection: Moved all ${{ inputs.* }} expressions from the run: block into the step's env: map (INPUT_PATH, INPUT_FORMAT, INPUT_OUTPUT, INPUT_SCAN_LEVEL, INPUT_FAIL_ON). Shell script now references these as double-quoted env vars. Replaced the unquoted $ARGS string with a bash array (ARGS=(...) with += appends) and invokes ai-bom with "${ARGS[@]}" to preserve argument boundaries.
 
-**Fixes applied:** script-injection, unpinned-uses
+2. unpinned-uses: Pinned both action references to full 40-character commit SHAs:
+   - actions/setup-python@v5 → @a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+   - github/codeql-action/upload-sarif@v3 → @1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3
 
-**Notes:**
-
-Fixed script injection in action.yml by converting ARGS from a string to a bash array with properly double-quoted values, invoking ai-bom with "${ARGS[@]}". Pinned all unpinned action references across 5 workflow files (ci.yml, ai-bom-example.yml, docker.yml, dogfood.yml, publish.yml) to their immutable 40-character SHA digests, preserving the original tag/branch as a comment for readability.
+The if: condition and sarif_file: input on the upload step retain ${{ }} expressions as they are in YAML expression context (not run: shell scripts) and are not subject to shell injection.
 
