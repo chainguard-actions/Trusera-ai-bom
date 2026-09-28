@@ -93,6 +93,6 @@ runs:
         ai-bom "${ARGS[@]}"
     - name: Upload SARIF to GitHub Code Scanning
       if: ${{ inputs.format == 'sarif' && (steps.scan.outputs.sarif_file != '' || inputs.output != '') }}
-      uses: github/codeql-action/upload-sarif@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3
+      uses: chainguard-actions/github-codeql-action/upload-sarif@02c8b1fece55d94b9fc8de711efd251dad82618c # v3
       with:
         sarif_file: ${{ steps.scan.outputs.sarif_file || inputs.output }}
