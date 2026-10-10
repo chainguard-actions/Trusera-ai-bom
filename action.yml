@@ -67,7 +67,7 @@ runs:
         INPUT_SCAN_LEVEL: ${{ inputs.scan-level }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
       run: |
-        # Build the command as an array to preserve argument boundaries
+        # Build the base command using an array to preserve argument boundaries
         ARGS=(scan "$INPUT_PATH" --format "$INPUT_FORMAT" --quiet)
 
         # Output file
@@ -93,6 +93,6 @@ runs:
         ai-bom "${ARGS[@]}"
     - name: Upload SARIF to GitHub Code Scanning
       if: ${{ inputs.format == 'sarif' && (steps.scan.outputs.sarif_file != '' || inputs.output != '') }}
-      uses: chainguard-actions/github-codeql-action/upload-sarif@02c8b1fece55d94b9fc8de711efd251dad82618c # v3
+      uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3
       with:
         sarif_file: ${{ steps.scan.outputs.sarif_file || inputs.output }}
