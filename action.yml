@@ -67,32 +67,32 @@ runs:
         INPUT_SCAN_LEVEL: ${{ inputs.scan-level }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
       run: |
-        # Build the base command using an array to preserve argument boundaries
-        ARGS=(scan "$INPUT_PATH" --format "$INPUT_FORMAT" --quiet)
+        # Build the base command using an array to prevent shell metacharacter injection
+        ARGS=("scan" "$INPUT_PATH" "--format" "$INPUT_FORMAT" "--quiet")
 
         # Output file
         if [ -n "$INPUT_OUTPUT" ]; then
-          ARGS+=(-o "$INPUT_OUTPUT")
+          ARGS+=("-o" "$INPUT_OUTPUT")
         elif [ "$INPUT_FORMAT" = "sarif" ]; then
           # Default SARIF output path for upload step
-          ARGS+=(-o ai-bom-results.sarif)
+          ARGS+=("-o" "ai-bom-results.sarif")
           echo "sarif_file=ai-bom-results.sarif" >> "$GITHUB_OUTPUT"
         fi
 
         # Scan level
         if [ "$INPUT_SCAN_LEVEL" = "deep" ]; then
-          ARGS+=(--deep)
+          ARGS+=("--deep")
         fi
 
         # Fail-on severity threshold
         if [ -n "$INPUT_FAIL_ON" ]; then
-          ARGS+=(--fail-on "$INPUT_FAIL_ON")
+          ARGS+=("--fail-on" "$INPUT_FAIL_ON")
         fi
 
         echo "Running: ai-bom ${ARGS[*]}"
         ai-bom "${ARGS[@]}"
     - name: Upload SARIF to GitHub Code Scanning
       if: ${{ inputs.format == 'sarif' && (steps.scan.outputs.sarif_file != '' || inputs.output != '') }}
-      uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3
+      uses: github/codeql-action/upload-sarif@ce5e7eeac396d720fe2d802714996c8ce561e311 # v3
       with:
         sarif_file: ${{ steps.scan.outputs.sarif_file || inputs.output }}

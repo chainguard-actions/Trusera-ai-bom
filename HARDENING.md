@@ -16,26 +16,39 @@ Action **Trusera--ai-bom/v3.1.0** was hardened automatically. 10 finding(s) were
 
 ### script-injection (severity: high)
 
-The 'Run ai-bom scan' step in action.yml directly interpolates multiple ${{ inputs.* }} expressions inside the run: shell script (rule a). Specifically: `ARGS="scan ${{ inputs.path }} --format ${{ inputs.format }} --quiet"`, `if [ -n "${{ inputs.output }}" ]`, `ARGS="$ARGS -o ${{ inputs.output }}"`, `elif [ "${{ inputs.format }}" = "sarif" ]`, `if [ "${{ inputs.scan-level }}" = "deep" ]`, `if [ -n "${{ inputs.fail-on }}" ]`, and `ARGS="$ARGS --fail-on ${{ inputs.fail-on }}"`. YAML template substitution occurs before the shell parses the command, so an attacker who controls any of these inputs can inject arbitrary shell metacharacters (e.g. semicolons, backticks, pipes). All inputs should be passed via env: variables and then referenced as quoted shell variables (e.g. "$INPUT_PATH") instead of being interpolated directly.
+The 'Run ai-bom scan' step in action.yml directly interpolates multiple `inputs.*` expressions inside the `run:` shell script (sub-rule a). Before the shell executes, GitHub's template engine substitutes these values verbatim, allowing a calling workflow to supply values containing shell metacharacters (`;`, `|`, `$(...)`, etc.) that execute arbitrary commands. Affected interpolations:
+- Line 52: `ARGS="scan ${{ inputs.path }} --format ${{ inputs.format }} --quiet"`
+- Line 55: `if [ -n "${{ inputs.output }}" ]`
+- Line 56: `ARGS="$ARGS -o ${{ inputs.output }}"`
+- Line 57: `elif [ "${{ inputs.format }}" = "sarif" ]`
+- Line 63: `if [ "${{ inputs.scan-level }}" = "deep" ]`
+- Line 67: `if [ -n "${{ inputs.fail-on }}" ]`
+- Line 68: `ARGS="$ARGS --fail-on ${{ inputs.fail-on }}"`
+
+Fix: Move all inputs into `env:` variables and reference them as quoted shell variables (e.g., `"$INPUT_PATH"`) instead of using `${{ ... }}` directly inside the `run:` block.
 
 Locations:
 
-- `action.yml:50`
-- `action.yml:53`
-- `action.yml:54`
+- `action.yml:52`
 - `action.yml:55`
-- `action.yml:60`
-- `action.yml:64`
-- `action.yml:65`
+- `action.yml:56`
+- `action.yml:57`
+- `action.yml:63`
+- `action.yml:67`
+- `action.yml:68`
 
 ### unpinned-uses (severity: high)
 
-Two uses: references in action.yml are pinned to mutable version tags rather than immutable 40-character SHA digests, making the action vulnerable to supply-chain attacks if the upstream tag is moved or compromised. Failing references: `actions/setup-python@v5` (line 38) and `github/codeql-action/upload-sarif@v3` (line 70). These should be replaced with their full SHA commit hashes, e.g. `actions/setup-python@<40-char-sha> # v5`.
+Two `uses:` references in action.yml are pinned to mutable version tags rather than immutable 40-character SHA digests. If the tag is moved (intentionally or via a supply-chain compromise), the action will silently execute different code.
+- Line 38: `uses: actions/setup-python@v5` (tag `v5`, not a SHA)
+- Line 73: `uses: github/codeql-action/upload-sarif@v3` (tag `v3`, not a SHA)
+
+Fix: Pin each reference to its full commit SHA, e.g. `actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5`.
 
 Locations:
 
 - `action.yml:38`
-- `action.yml:70`
+- `action.yml:73`
 
 ### static-inline-injection (severity: high)
 
@@ -109,8 +122,9 @@ Locations:
 
 **Notes:**
 
-1. Pinned actions/setup-python@v5 to SHA a26af69be951a213d495a4c3e4e4022e16d87065 and github/codeql-action/upload-sarif@v3 to SHA 9f759ee644a3e7c15c1390abf49868036c00067b.
-2. Moved all ${{ inputs.* }} expressions (path, format, output, scan-level, fail-on) from the run: shell script into an env: block as INPUT_PATH, INPUT_FORMAT, INPUT_OUTPUT, INPUT_SCAN_LEVEL, INPUT_FAIL_ON. All references in the shell script now use quoted environment variables ($INPUT_PATH, etc.) instead of inline template expressions, preventing shell injection attacks.
+Fixed all findings in action.yml:
+1. Pinned actions/setup-python@v5 to SHA a26af69be951a213d495a4c3e4e4022e16d87065 and github/codeql-action/upload-sarif@v3 to SHA ce5e7eeac396d720fe2d802714996c8ce561e311.
+2. Moved all ${{ inputs.* }} expressions (path, format, output, scan-level, fail-on) from the run: shell block into an env: map (INPUT_PATH, INPUT_FORMAT, INPUT_OUTPUT, INPUT_SCAN_LEVEL, INPUT_FAIL_ON) and replaced all inline template expressions in the shell script with references to these environment variables.
 
 ### Iteration 2
 
@@ -118,5 +132,5 @@ Locations:
 
 **Notes:**
 
-Fixed script injection in the 'Run ai-bom scan' step of action.yml. Replaced the string-based ARGS variable (which concatenated unquoted input variables and was itself unquoted when passed to ai-bom) with a bash array. Each input-derived value ($INPUT_PATH, $INPUT_FORMAT, $INPUT_OUTPUT, $INPUT_FAIL_ON) is now double-quoted when added to the array, and the command is invoked as `ai-bom "${ARGS[@]}"` to preserve argument boundaries and prevent word-splitting or shell metacharacter injection.
+Fixed script-injection vulnerability in the 'Run ai-bom scan' step of action.yml. Replaced the string-based ARGS variable (where INPUT_PATH, INPUT_FORMAT, INPUT_OUTPUT, and INPUT_FAIL_ON were expanded unquoted) with a bash array. Each input value is now a properly double-quoted separate array element: ARGS=("scan" "$INPUT_PATH" "--format" "$INPUT_FORMAT" "--quiet"), with conditional elements appended via ARGS+=(...). The final command uses `ai-bom "${ARGS[@]}"` which expands each element as a separate, properly-quoted argument, preventing shell metacharacter injection from attacker-controlled input values.
 
