@@ -1,13 +1,16 @@
 name: "AI-BOM Scan"
 description: "Discover and inventory AI/LLM agents, models, and API integrations in your codebase. Generates SBOM-style reports in CycloneDX, SARIF, SPDX, and more."
 author: "Trusera"
+
 # Required permissions in calling workflow:
 #   permissions:
 #     security-events: write   # For SARIF upload to GitHub Code Scanning
 #     contents: read           # For checkout
+
 branding:
   icon: "shield"
   color: "blue"
+
 inputs:
   path:
     description: "Directory to scan"
@@ -29,6 +32,7 @@ inputs:
     description: "Scanning depth: quick (pattern-matching only), standard (all scanners), deep (standard + AST analysis)"
     required: false
     default: "standard"
+
 runs:
   using: "composite"
   steps:
@@ -54,9 +58,11 @@ runs:
       with:
         python-version: "3.12"
         cache: "pip"
+
     - name: Install ai-bom
       shell: bash
       run: pip install ai-bom
+
     - name: Run ai-bom scan
       id: scan
       shell: bash
@@ -67,32 +73,33 @@ runs:
         INPUT_SCAN_LEVEL: ${{ inputs.scan-level }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
       run: |
-        # Build the base command using an array to prevent shell metacharacter injection
-        ARGS=("scan" "$INPUT_PATH" "--format" "$INPUT_FORMAT" "--quiet")
+        # Build the base command
+        ARGS=(scan "$INPUT_PATH" --format "$INPUT_FORMAT" --quiet)
 
         # Output file
         if [ -n "$INPUT_OUTPUT" ]; then
-          ARGS+=("-o" "$INPUT_OUTPUT")
+          ARGS+=(-o "$INPUT_OUTPUT")
         elif [ "$INPUT_FORMAT" = "sarif" ]; then
           # Default SARIF output path for upload step
-          ARGS+=("-o" "ai-bom-results.sarif")
+          ARGS+=(-o ai-bom-results.sarif)
           echo "sarif_file=ai-bom-results.sarif" >> "$GITHUB_OUTPUT"
         fi
 
         # Scan level
         if [ "$INPUT_SCAN_LEVEL" = "deep" ]; then
-          ARGS+=("--deep")
+          ARGS+=(--deep)
         fi
 
         # Fail-on severity threshold
         if [ -n "$INPUT_FAIL_ON" ]; then
-          ARGS+=("--fail-on" "$INPUT_FAIL_ON")
+          ARGS+=(--fail-on "$INPUT_FAIL_ON")
         fi
 
         echo "Running: ai-bom ${ARGS[*]}"
         ai-bom "${ARGS[@]}"
+
     - name: Upload SARIF to GitHub Code Scanning
       if: ${{ inputs.format == 'sarif' && (steps.scan.outputs.sarif_file != '' || inputs.output != '') }}
-      uses: github/codeql-action/upload-sarif@ce5e7eeac396d720fe2d802714996c8ce561e311 # v3
+      uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3
       with:
         sarif_file: ${{ steps.scan.outputs.sarif_file || inputs.output }}
