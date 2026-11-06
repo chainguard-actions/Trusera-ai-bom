@@ -1,13 +1,16 @@
 name: "AI-BOM Scan"
 description: "Discover and inventory AI/LLM components in your codebase"
 author: "Trusera"
+
 # Required permissions in calling workflow:
 #   permissions:
 #     security-events: write   # For SARIF upload to GitHub Code Scanning
 #     contents: read           # For checkout
+
 branding:
   icon: "shield"
   color: "blue"
+
 inputs:
   path:
     description: "Path to scan"
@@ -41,6 +44,7 @@ inputs:
     description: "Python version to use"
     required: false
     default: "3.12"
+
 runs:
   using: "composite"
   steps:
@@ -66,12 +70,14 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
         cache: 'pip'
+
     - name: Install ai-bom
       shell: bash
       run: pip install ai-bom
+
     - name: Run ai-bom scan
       shell: bash
-      continue-on-error: true # Scan findings should not fail the workflow
+      continue-on-error: true  # Scan findings should not fail the workflow
       env:
         INPUT_PATH: ${{ inputs.path }}
         INPUT_FORMAT: ${{ inputs.format }}
@@ -91,8 +97,9 @@ runs:
           args+=(--policy "$INPUT_POLICY_FILE")
         fi
         ai-bom "${args[@]}"
+
     - name: Upload SARIF to GitHub Code Scanning
       if: ${{ inputs.upload-sarif == 'true' && inputs.format == 'sarif' }}
-      uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07 # v3
+      uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
       with:
         sarif_file: ${{ inputs.output }}
